@@ -7,7 +7,7 @@ async function bootstrap() {
 
   // Habilitar CORS
   app.enableCors({
-    origin: ['http://localhost:4200', 'http://localhost:3000','http://ec2-18-191-148-249.us-east-2.compute.amazonaws.com:3000'],
+    origin: ['http://localhost:4200', 'http://agentes-system-137.site.s3-website.us-east-2.amazonaws.com/', 'http://localhost:3000','http://ec2-18-191-148-249.us-east-2.compute.amazonaws.com:3000'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
