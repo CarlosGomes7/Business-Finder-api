@@ -7,8 +7,15 @@ async function bootstrap() {
 
   // Habilitar CORS
   app.enableCors({
-    origin: '*', // Permite todos los orígenes (solo para desarrollo/pruebas)
+    origin: [
+      'http://localhost:4200',
+      'http://agentes-system-137.site.s3-website.us-east-2.amazonaws.com',
+      'http://localhost:3000',
+      'http://ec2-18-191-148-249.us-east-2.compute.amazonaws.com:3000'
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
+    allowedHeaders: 'Content-Type, Accept, Authorization',
   });
 // Validación global
   app.useGlobalPipes(new ValidationPipe({
@@ -19,6 +26,5 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
 }
 bootstrap();
