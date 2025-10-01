@@ -6,10 +6,17 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Habilitar CORS
-  app.enableCors({
-     origin: '*',  // ⚠️ Permite TODOS los orígenes - SOLO para pruebas
-      credentials: true,
+   app.enableCors({
+    origin: [
+      'https://business-finder.online',
+      'https://www.business-finder.online',
+      'http://localhost:4200' // Para desarrollo local
+    ],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
+  
 // Validación global
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
