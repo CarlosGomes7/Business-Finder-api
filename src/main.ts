@@ -7,7 +7,7 @@ async function bootstrap() {
 
   // Habilitar CORS
    app.enableCors({
-    origin: [
+    origin: [ 
       'https://business-finder.online',
       'https://www.business-finder.online',
       'http://localhost:4200' // Para desarrollo local
@@ -20,7 +20,7 @@ async function bootstrap() {
 // Validación global
   app.useGlobalPipes(new ValidationPipe({
     whitelist: true,
-    forbidNonWhitelisted: true,
+    forbidNonWhitelisted: false,
     transform: true,
   }));
 
