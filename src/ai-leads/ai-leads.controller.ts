@@ -12,9 +12,12 @@ import { AiLeadsService } from './ai-leads.service';
 import { ProcessLeadsDto } from './dto/process-leads.dto';
 import { Lead } from './interfaces/lead.interface';
 import * as Papa from 'papaparse';
+import { ApiResponse, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('leads') 
 @Controller('api/leads')
 export class AiLeadsController {
+
   constructor(private readonly aiLeadsService: AiLeadsService) {}
 
   /**
@@ -36,6 +39,7 @@ export class AiLeadsController {
    * }
    */
   @Post('process-json')
+  @ApiResponse({ status: 200, description: 'Procesa leads en formato JSON' })
   async processJsonLeads(@Body() data: ProcessLeadsDto) {
     try {
       if (!data.leads || !Array.isArray(data.leads)) {
