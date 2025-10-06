@@ -1,4 +1,9 @@
+// ============================================
+// PASO 4: SERVICIO PRINCIPAL (SIN IA EXTERNA)
+// Este servicio usa LÓGICA DE REGLAS para generar mensajes
+// ============================================
 
+// src/ai-leads/ai-leads.service.ts
 import { Injectable } from '@nestjs/common';
 import { Lead, ProcessedLead, ServicePackage, IAProduct } from './interfaces/lead.interface';
 
@@ -125,7 +130,10 @@ export class AiLeadsService {
   /**
    * Clasifica el tipo de negocio basado en Types y Name
    */
-  private classifyBusiness(types: string, name: string): string {
+  private classifyBusiness(types: string = '', name: string = ''): string {
+    // Asegurar que sean strings
+    types = types.toLowerCase();
+    name = name.toLowerCase();
     if (types.includes('lodging') || name.includes('hospedaje') || name.includes('hotel')) {
       return 'hotel';
     }
@@ -215,7 +223,7 @@ export class AiLeadsService {
   }
 
   /**
-   * Genera el mensaje personalizado
+   * Genera el mensaje personalizado enfocado en beneficios
    */
   private generateMessage(
     lead: Lead,
@@ -223,43 +231,116 @@ export class AiLeadsService {
     packageName: string,
     services: string[]
   ): string {
-    const businessName = lead.Name;
+    const businessName = lead.Name || 'su negocio';
+    const location = this.extractLocation(lead.Address);
+    const locationText = location ? ` en ${location}` : '';
+    const ratingsText = this.getRatingsText(lead);
 
-    // Mensajes contextualizados por tipo de negocio
-    const contextMessages: Record<string, string> = {
-      hotel: `Vi que ${businessName} ofrece hospedaje en San Luis de Shuaro. 🏨\n\nNos especializamos en ayudar a hoteles y hospedajes a:\n✅ Automatizar reservas (Google Calendar + WhatsApp)\n✅ Aumentar reservas con presencia digital profesional\n✅ Gestionar redes sociales para atraer más huéspedes`,
+    // Introducción contextualizada por tipo de negocio
+    const introductions: Record<string, string> = {
+      hotel: `Hola, vi que ${businessName} ofrece hospedaje${locationText}.${ratingsText}\n\nSoy de System-137 y nos especializamos en ayudar a hoteles y hospedajes a crecer digitalmente.`,
       
-      restaurant: `Hola, noté que ${businessName} es un restaurante/comedor en la zona. 🍽️\n\nPodemos ayudarles a:\n✅ Sistema de pedidos online\n✅ Notificaciones automáticas de pedidos\n✅ Presencia en redes sociales para atraer más clientes`,
+      restaurant: `Hola, noté que ${businessName} es un restaurante${locationText}.${ratingsText}\n\nSoy de System-137 y trabajamos con restaurantes ayudándolos a crecer su presencia digital.`,
       
-      health: `Buenos días, vi que ${businessName} ofrece servicios de salud. 🏥\n\nNos especializamos en:\n✅ Sistema de recordatorios de citas automáticos (WhatsApp/SMS)\n✅ Reducir ausencias de pacientes\n✅ Mejorar su presencia digital profesional`,
+      health: `Buenos días, vi que ${businessName} ofrece servicios de salud${locationText}.${ratingsText}\n\nSoy de System-137 y trabajamos con clínicas y consultorios mejorando su gestión digital.`,
       
-      store: `Hola, noté que ${businessName} es un comercio local. 🛒\n\nPodemos ayudarles a:\n✅ Vender productos online\n✅ Gestión profesional de redes sociales\n✅ Notificaciones automáticas de pedidos`,
+      store: `Hola, noté que ${businessName} es un comercio local${locationText}.${ratingsText}\n\nSoy de System-137 y ayudamos a comercios locales a vender más usando tecnología.`,
       
-      general: `Hola, vi su negocio ${businessName} en San Luis de Shuaro.\n\nEn System-137 nos especializamos en ayudar a negocios locales a crecer en internet con:\n✅ Presencia web profesional\n✅ Gestión de redes sociales\n✅ Automatizaciones que ahorran tiempo`
+      hardware: `Hola, vi que ${businessName}${locationText}.${ratingsText}\n\nSoy de System-137 y trabajamos con ferreterías ayudándolas a modernizar sus ventas.`,
+      
+      church: `Saludos, vi que ${businessName}${locationText}.\n\nSoy de System-137 y trabajamos con instituciones religiosas mejorando su comunicación con la comunidad.`,
+      
+      school: `Buenos días, vi que ${businessName}${locationText}.${ratingsText}\n\nSoy de System-137 y trabajamos con instituciones educativas modernizando su comunicación digital.`,
+      
+      general: `Hola, vi su negocio ${businessName}${locationText}.${ratingsText}\n\nSoy de System-137 y ayudamos a negocios locales a crecer con tecnología.`
     };
 
-    const contextMessage = contextMessages[businessType] || contextMessages.general;
+    // Beneficios específicos por tipo de negocio
+    const benefits: Record<string, string[]> = {
+      hotel: [
+        'Aumentar sus reservas con presencia digital profesional',
+        'Automatizar confirmaciones de reservas (ahorra tiempo y reduce errores)',
+        'Llegar a más turistas que buscan hospedaje online',
+        'Responder consultas 24/7 incluso cuando están ocupados'
+      ],
+      
+      restaurant: [
+        'Recibir pedidos online directamente (sin comisiones de apps)',
+        'Atraer más clientes con presencia en redes sociales',
+        'Mostrar su menú actualizado siempre disponible',
+        'Automatizar confirmaciones de pedidos y reservas'
+      ],
+      
+      health: [
+        'Reducir ausencias con recordatorios automáticos de citas',
+        'Liberar tiempo del personal que confirma citas manualmente',
+        'Mejorar la experiencia de sus pacientes',
+        'Proyectar una imagen más profesional y moderna'
+      ],
+      
+      store: [
+        'Vender sus productos 24/7 sin necesidad de estar físicamente',
+        'Llegar a más clientes con redes sociales bien gestionadas',
+        'Recibir notificaciones instantáneas de cada pedido',
+        'Competir con tiendas más grandes teniendo presencia digital'
+      ],
+      
+      hardware: [
+        'Mostrar su catálogo de productos online',
+        'Recibir consultas y pedidos por WhatsApp de forma organizada',
+        'Diferenciarse de la competencia con presencia digital',
+        'Mantener informados a sus clientes sobre ofertas y nuevos productos'
+      ],
+      
+      church: [
+        'Comunicarse mejor con su comunidad',
+        'Transmitir servicios religiosos en vivo',
+        'Compartir mensajes y eventos fácilmente',
+        'Mantener conectada a su congregación'
+      ],
+      
+      school: [
+        'Comunicación directa y rápida con padres de familia',
+        'Proyectar una imagen institucional más profesional',
+        'Compartir información importante de forma organizada',
+        'Automatizar recordatorios de eventos y pagos'
+      ],
+      
+      general: [
+        'Ser más visible para clientes que buscan online',
+        'Proyectar una imagen más profesional',
+        'Automatizar tareas repetitivas y ahorrar tiempo',
+        'Competir mejor con negocios más grandes'
+      ]
+    };
 
-    // Recomendación de paquete
+    const introduction = introductions[businessType] || introductions.general;
+    const businessBenefits = benefits[businessType] || benefits.general;
+
+    // Construir lista de beneficios
+    const benefitsText = '\n\nLo que podemos hacer por ustedes:\n' + 
+      businessBenefits.map(benefit => `✅ ${benefit}`).join('\n');
+
+    // Soluciones recomendadas (sin precios)
     const packageInfo = this.packages[packageName.toLowerCase()];
-    const packageMessage = `\n\n📦 Les recomendaría nuestro paquete "${packageName}" (S/ ${packageInfo.price}/mes):\n${packageInfo.description}`;
+    let solutionsText = `\n\n📦 Les recomendaría comenzar con nuestro paquete "${packageName}":\n${packageInfo.description}`;
 
-    // Servicios de IA
-    let servicesMessage = '';
+    // Servicios de IA específicos (sin precios)
     if (services.length > 0) {
-      servicesMessage = `\n\n🤖 Productos de IA ideales para ustedes:\n`;
-      services.forEach(service => {
+      const iaServicesText = services.map(service => {
         const iaProduct = Object.values(this.iaProducts).find(p => p.name === service);
-        if (iaProduct) {
-          servicesMessage += `✅ ${service} (S/ ${iaProduct.price} setup + S/ ${iaProduct.monthlyPrice}/mes)\n`;
-        }
-      });
+        return iaProduct ? `   • ${service}: ${iaProduct.description}` : '';
+      }).filter(s => s).join('\n');
+
+      if (iaServicesText) {
+        solutionsText += `\n\n🤖 Y complementarlo con automatizaciones ideales para su tipo de negocio:\n${iaServicesText}`;
+      }
     }
 
-    // Call to action
-    const cta = `\n\n¿Les gustaría que conversemos 15 minutos sin compromiso sobre cómo podemos ayudarles?\n\nSaludos,\nSystem-137 🚀\nTransformamos negocios con tecnología`;
+    // Call to action sin presión
+    const cta = `\n\n¿Les gustaría que conversemos? Puedo explicarles cómo funcionan estas soluciones y ver si tiene sentido para ${businessName}. Son solo 15 minutos, sin compromiso.\n\nSi les interesa, ¿cuándo tendrían un momento esta semana?\n\nSaludos,\nSystem-137 🚀\nTransformamos negocios con tecnología`;
 
-    return `${contextMessage}${packageMessage}${servicesMessage}${cta}`;
+    return `${introduction}${benefitsText}${solutionsText}${cta}`;
   }
 
   /**
@@ -290,6 +371,73 @@ export class AiLeadsService {
   private getPriorityScore(priority: string): number {
     const scores = { high: 3, medium: 2, low: 1 };
     return scores[priority as keyof typeof scores] || 0;
+  }
+
+  /**
+   * Extrae la ubicación más relevante de la dirección
+   * Prioriza: Ciudad > Distrito > Provincia
+   */
+  private extractLocation(address?: string): string {
+    if (!address || address === 'N/A') return '';
+
+    // Limpiar la dirección
+    const cleanAddress = address.trim();
+
+    // Patrones comunes en direcciones peruanas
+    // Buscar ciudad/distrito antes de la provincia
+    const locationPatterns = [
+      /,\s*([^,]+),\s*Peru$/i,           // "..., San Luis de Shuaro, Peru"
+      /,\s*([^,]+),\s*\d+,\s*Peru$/i,    // "..., San Luis de Shuaro 12860, Peru"
+      /([^,]+),\s*Peru$/i,                // "San Luis de Shuaro, Peru"
+    ];
+
+    for (const pattern of locationPatterns) {
+      const match = cleanAddress.match(pattern);
+      if (match && match[1]) {
+        let location = match[1].trim();
+        // Remover código postal si existe
+        location = location.replace(/\s+\d{5,}$/, '');
+        return location;
+      }
+    }
+
+    // Si no coincide con patrones, buscar palabras clave de ubicación
+    const parts = cleanAddress.split(',').map(p => p.trim());
+    
+    // Filtrar partes que parecen direcciones de calle
+    const locationParts = parts.filter(part => 
+      !part.match(/^(calle|jr|av|avenida|jirón)/i) &&
+      !part.match(/^\d/) &&
+      !part.toLowerCase().includes('peru') &&
+      part.length > 3
+    );
+
+    if (locationParts.length > 0) {
+      // Retornar la última parte válida (usualmente la ciudad/distrito)
+      return locationParts[locationParts.length - 1].replace(/\s+\d{5,}$/, '');
+    }
+
+    return '';
+  }
+
+  /**
+   * Genera texto sobre ratings si existen
+   */
+  private getRatingsText(lead: Lead): string {
+    const totalRatings = parseInt(lead.TotalRatings || '0');
+    const rating = parseFloat(lead.Rating || '0');
+
+    if (totalRatings > 0 && rating > 0) {
+      if (totalRatings >= 10) {
+        return ` ¡Vi que tienen ${rating} estrellas con ${totalRatings} reseñas - excelente reputación!`;
+      } else if (totalRatings >= 5) {
+        return ` Vi que tienen ${rating} estrellas - ¡buena reputación!`;
+      } else if (totalRatings > 0) {
+        return ` Vi sus reseñas positivas`;
+      }
+    }
+
+    return '';
   }
 
   /**
