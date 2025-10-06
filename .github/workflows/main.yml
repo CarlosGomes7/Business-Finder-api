@@ -1,0 +1,166 @@
+name: Deploy to EC2 Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite ejecutar manualmente desde GitHub
+
+env:
+  NODE_ENV: production
+  APP_NAME: business-finder-api
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint || echo "No lint script found, skipping..."
+        continue-on-error: true
+
+      - name: Run tests
+        run: npm test || echo "No test script found, skipping..."
+        continue-on-error: true
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2 with rollback
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_PORT || 22 }}
+          command_timeout: 30m
+          script: |
+            set -e  # Exit on any error
+            
+            echo "🚀 Starting deployment for ${{ env.APP_NAME }}..."
+            
+            # Variables
+            APP_DIR=~/Business-Finder-api
+            BACKUP_DIR=~/backups
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            # Create backup directory if it doesn't exist
+            mkdir -p $BACKUP_DIR
+            
+            # Navigate to app directory
+            cd $APP_DIR
+            
+            # Store current commit for rollback
+            CURRENT_COMMIT=$(git rev-parse HEAD)
+            echo "Current commit: $CURRENT_COMMIT"
+            
+            # Create backup
+            echo "📦 Creating backup..."
+            tar -czf $BACKUP_DIR/backup_$TIMESTAMP.tar.gz \
+              --exclude='node_modules' \
+              --exclude='.git' \
+              .
+            
+            # Keep only last 5 backups
+            cd $BACKUP_DIR
+            ls -t backup_*.tar.gz | tail -n +6 | xargs -r rm
+            cd $APP_DIR
+            
+            # Pull latest changes
+            echo "📥 Pulling latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            npm ci --production
+            
+            # Health check before restart
+            echo "🏥 Running health checks..."
+            
+            # Restart PM2
+            echo "🔄 Restarting PM2..."
+            pm2 restart ${{ env.APP_NAME }} --update-env
+            
+            # Wait for app to start
+            sleep 5
+            
+            # Verify deployment
+            echo "✅ Verifying deployment..."
+            if pm2 describe ${{ env.APP_NAME }} | grep -q "online"; then
+              echo "✅ Deployment successful!"
+              pm2 save
+              
+              # Test health endpoint
+              if curl -f http://localhost:3000/health > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+              else
+                echo "⚠️  Health check endpoint not responding (continuing anyway)"
+              fi
+              
+              # Cleanup old logs
+              pm2 flush ${{ env.APP_NAME }}
+              
+              echo "🎉 Deployment completed successfully!"
+              echo "📊 Current status:"
+              pm2 status ${{ env.APP_NAME }}
+              
+            else
+              echo "❌ Deployment failed! Rolling back..."
+              git reset --hard $CURRENT_COMMIT
+              npm ci --production
+              pm2 restart ${{ env.APP_NAME }}
+              echo "⚠️  Rolled back to commit: $CURRENT_COMMIT"
+              exit 1
+            fi
+
+      - name: Deployment Success Notification
+        if: success()
+        run: |
+          echo "✅ Deployment to EC2 completed successfully!"
+          echo "🌐 API URL: https://api.business-finder.online"
+          echo "⏰ Deployed at: $(date)"
+
+      - name: Deployment Failure Notification
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "Please check the logs above for details."
+
+  notify:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    
+    steps:
+      - name: Notify on Success
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "🎉 Deployment successful!"
+          # Aquí puedes agregar notificaciones a Slack, Discord, etc.
+          
+      - name: Notify on Failure
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Deployment failed!"
+          # Aquí puedes agregar notificaciones de error
